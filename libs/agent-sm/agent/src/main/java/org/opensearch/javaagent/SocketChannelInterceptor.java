@@ -52,11 +52,15 @@ public class SocketChannelInterceptor {
         if (args[0] instanceof InetSocketAddress address) {
             if (!AgentPolicy.isTrustedHost(address.getHostString())) {
                 final String host = address.getHostString() + ":" + address.getPort();
-
-                final SocketPermission permission = new SocketPermission(host, "connect,resolve");
+                final SocketPermission connectResolve = new SocketPermission("*", "connect,resolve");
+                final SocketPermission localHostListenResolve = new SocketPermission("localhost:0", "listen,resolve");
+                final SocketPermission localHostRangeListenResolve = new SocketPermission("localhost:1024-", "listen,resolve");
                 for (final ProtectionDomain domain : callers) {
-                    if (!policy.implies(domain, permission)) {
-                        throw new SecurityException("Denied access to: " + host + ", domain " + domain);
+                    boolean hasPermission = policy.implies(domain, connectResolve)
+                        || policy.implies(domain, localHostListenResolve)
+                        || policy.implies(domain, localHostRangeListenResolve);
+                    if (!hasPermission) {
+                        throw new SecurityException("Denied access to: " + host + ", domain: " + domain);
                     }
                 }
             }
@@ -64,7 +68,7 @@ public class SocketChannelInterceptor {
             final NetPermission permission = new NetPermission("accessUnixDomainSocket");
             for (final ProtectionDomain domain : callers) {
                 if (!policy.implies(domain, permission)) {
-                    throw new SecurityException("Denied access to: " + address + ", domain " + domain);
+                    throw new SecurityException("Denied access to: " + address + ", domain: " + domain);
                 }
             }
         }
